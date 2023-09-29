@@ -1,5 +1,12 @@
+import json
+import sys
+import time
+
 import aiohttp
 from abc import ABC
+
+from token_bucket import Limiter, MemoryStorage
+
 from sinch.core.endpoint import HTTPEndpoint
 from sinch.core.models.http_request import HttpRequest
 from sinch.core.models.http_response import HTTPResponse
@@ -10,6 +17,7 @@ from sinch.core.token_manager import TokenState
 class HTTPTransport(ABC):
     def __init__(self, sinch):
         self.sinch = sinch
+        self.limiter = Limiter(sys.maxsize, sys.maxsize, MemoryStorage())
 
     def request(self, endpoint: HTTPEndpoint) -> HTTPResponse:
         pass
@@ -44,10 +52,29 @@ class HTTPTransport(ABC):
         )
 
     def handle_response(self, endpoint: HTTPEndpoint, http_response: HTTPResponse):
+        self.sinch.configuration.logger.info(
+            f"HTTP {http_response.status_code}\n{http_response.headers}"
+        )
         if http_response.status_code == 401:
             self.sinch.configuration.token_manager.handle_invalid_token(http_response)
             if self.sinch.configuration.token_manager.token_state == TokenState.EXPIRED:
                 return self.request(endpoint=endpoint)
+        if http_response.status_code == 429:
+            retry_after = int(http_response.headers['Retry-After'])
+            if retry_after > 0:
+                self.sinch.configuration.logger.info(f"Sleeping for {retry_after} seconds")
+                time.sleep(retry_after + 1)
+            return self.request(endpoint=endpoint)
+        else:
+            if 'ratelimit' in http_response.headers:
+                rl_header = http_response.headers['ratelimit']
+                self.sinch.configuration.logger.info(f"Ratelimit header: {rl_header}")
+                rl_keywords = dict([t.split('=') for t in rl_header.split(', ')])
+                self.limiter._rate = int(rl_keywords['limit']) / int(rl_keywords['reset'])
+                self.limiter._capacity = int(rl_keywords['limit'])
+            else:
+                self.limiter._rate = sys.maxsize
+                self.limiter._capacity = sys.maxsize
 
         return endpoint.handle_response(http_response)
 

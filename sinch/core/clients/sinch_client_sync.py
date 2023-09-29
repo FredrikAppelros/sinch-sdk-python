@@ -5,6 +5,7 @@ from sinch.core.adapters.requests_http_transport import HTTPTransportRequests
 from sinch.domains.authentication import Authentication
 from sinch.domains.numbers import Numbers
 from sinch.domains.conversation import Conversation
+from sinch.domains.ratelimit import Ratelimit
 from sinch.domains.sms import SMS
 
 
@@ -42,3 +43,4 @@ class Client(ClientBase):
         self.numbers = Numbers(self)
         self.conversation = Conversation(self)
         self.sms = SMS(self)
+        self.ratelimit = Ratelimit(self)

@@ -1,3 +1,5 @@
+import time
+
 import requests
 import json
 from sinch.core.ports.http_transport import HTTPTransport, HttpRequest
@@ -19,6 +21,12 @@ class HTTPTransportRequests(HTTPTransport):
             f" {request_data.headers} and body: {request_data.request_body} to URL: {request_data.url}"
         )
 
+        ready = self.limiter.consume(request_data.url, 1)
+        while not ready:
+            sleep_time = 1 / self.limiter._rate
+            self.sinch.configuration.logger.info(f"Sleeping for {sleep_time} seconds")
+            time.sleep(sleep_time)
+            ready = self.limiter.consume(request_data.url, 1)
         response = self.session.request(
             method=request_data.http_method,
             url=request_data.url,

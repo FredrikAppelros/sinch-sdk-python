@@ -4,6 +4,7 @@ from sinch.core.clients.sinch_client_configuration import Configuration
 from sinch.domains.authentication import AuthenticationBase
 from sinch.domains.numbers import NumbersBase
 from sinch.domains.conversation import ConversationBase
+from sinch.domains.ratelimit import RatelimitBase
 from sinch.domains.sms import SMSBase
 
 
@@ -36,6 +37,7 @@ class ClientBase(ABC):
         self.numbers = NumbersBase
         self.conversation = ConversationBase
         self.sms = SMSBase
+        self.ratelimit = RatelimitBase
 
     def __repr__(self):
         return f"Sinch SDK client for project_id: {self.configuration.project_id}"
